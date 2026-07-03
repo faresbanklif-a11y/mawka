@@ -21,7 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Text, Float, ForeignKey, event
 from sqlalchemy.orm import sessionmaker, Session, relationship, declarative_base
-from passlib.context import CryptContext
+from sqlalchemy.orm import declarative_base
+import bcrypt
 from jose import jwt, JWTError
 from pydantic import BaseModel, EmailStr
 import httpx
@@ -117,7 +118,6 @@ class ActivityLog(Base):
 Base.metadata.create_all(bind=engine)
 
 # ─── Auth Setup ───
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -128,14 +128,15 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 def verify_password(plain: str, hashed: str) -> bool:
     try:
-        return pwd_context.verify(plain, hashed)
-    except:
+        return bcrypt.checkpw(plain.encode('utf-8'), hashed.encode('utf-8'))
+    except Exception:
         return False
 
 def get_password_hash(password: str) -> str:
-    if len(password) > 72:
-        password = password[:72]
-    return pwd_context.hash(password)
+    # نقوم باقتطاع كلمة المرور عند 72 بايت لأن bcrypt يدعم بحد أقصى 72 بايت
+    pwd_bytes = password.encode('utf-8')[:72]
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
 
 def get_db():
     db = SessionLocal()
