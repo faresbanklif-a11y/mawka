@@ -125,15 +125,14 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, config.SECRET_KEY, algorithm=config.ALGORITHM)
 
-# 🛠️ تصحيح دالة التحقق لتفادي تعارض مكتبة passlib
 def verify_password(plain: str, hashed: str) -> bool:
     try:
         return bcrypt.checkpw(plain.encode('utf-8'), hashed.encode('utf-8'))
     except Exception:
         return False
 
-# 🛠️ تصحيح دالة التشفير لتفادي تعارض مكتبة passlib والـ 72 بايت
 def get_password_hash(password: str) -> str:
+    # نقوم باقتطاع كلمة المرور عند 72 بايت لأن bcrypt يدعم بحد أقصى 72 بايت
     pwd_bytes = password.encode('utf-8')[:72]
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
@@ -323,15 +322,17 @@ def get_system_stats():
     memory = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
     net = psutil.net_io_counters()
+    cpu_temp = None
     try:
         temps = psutil.sensors_temperatures()
+        if temps:
+            for name, entries in temps.items():
+                if entries:
+                    cpu_temp = entries[0].current
+                    break
+    except Exception:
         cpu_temp = None
-        for name, entries in temps.items():
-            if entries:
-                cpu_temp = entries[0].current
-                break
-    except:
-        cpu_temp = None
+        
     return {
         "cpu_percent": cpu_percent,
         "cpu_count": psutil.cpu_count(),
@@ -371,7 +372,8 @@ def clean_old_logs(db: Session):
 
 # ─── API Routes ───
 
-@app.route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
+# تم تعديل هذا المزيّن ليتوافق تماماً مع معايير FastAPI بدلاً من أسلوب Flask القديم
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def home(request: Request):
     if request.method == "HEAD":
         return Response(status_code=200)
@@ -606,7 +608,6 @@ async def create_project(request: Request, data: ProjectCreateSchema, db: Sessio
     project_count = db.query(Project).filter(Project.owner_id == user.id).count()
     if project_count >= config.MAX_PROJECTS_PER_USER:
         raise HTTPException(status_code=400, detail=f"Maximum {config.MAX_PROJECTS_PER_USER} projects allowed per user")
-
     project_path = get_project_path(user.id, data.name)
     project = Project(
         name=data.name,
@@ -617,7 +618,6 @@ async def create_project(request: Request, data: ProjectCreateSchema, db: Sessio
     db.add(project)
     db.commit()
     db.refresh(project)
-
     log_activity(db, user.id, "create_project", f"Created project {data.name}", request.client.host)
     return {"id": project.id, "name": project.name, "message": "Project created successfully"}
 
@@ -627,7 +627,6 @@ async def get_project(request: Request, project_id: int, db: Session = Depends(g
     project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
     return {
         "id": project.id,
         "name": project.name,
@@ -645,7 +644,6 @@ async def delete_project(request: Request, project_id: int, db: Session = Depend
     project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
     logs = db.query(ProcessLog).filter(ProcessLog.project_id == project_id, ProcessLog.status == "running").all()
     for log in logs:
         process_manager.stop(log.id)
@@ -708,105 +706,3 @@ async def run_project(request: Request, project_id: int, data: dict = {"main_fil
     log_id = process_manager.start(project.path, main_file, project_id, db)
     log_activity(db, user.id, "run_project", f"Started project {project.name} with {main_file}", request.client.host)
     return {"log_id": log_id, "message": "Project started successfully"}
-
-@app.post("/api/projects/{project_id}/stop/{log_id}")
-async def stop_project(request: Request, project_id: int, log_id: int, db: Session = Depends(get_db)):
-    user = await require_auth(request, db)
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    log = db.query(ProcessLog).filter(ProcessLog.id == log_id, ProcessLog.project_id == project_id).first()
-    if not log:
-        raise HTTPException(status_code=404, detail="Process not found")
-    process_manager.stop(log_id)
-    log.status = "stopped"
-    log.stopped_at = get_utc_now()
-    db.commit()
-    log_activity(db, user.id, "stop_project", f"Stopped project {project.name}", request.client.host)
-    return {"message": "Project stopped successfully"}
-
-@app.get("/api/projects/{project_id}/output/{log_id}")
-async def get_project_output(request: Request, project_id: int, log_id: int, db: Session = Depends(get_db)):
-    user = await require_auth(request, db)
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    log = db.query(ProcessLog).filter(ProcessLog.id == log_id, ProcessLog.project_id == project_id).first()
-    if not log:
-        raise HTTPException(status_code=404, detail="Process not found")
-    stdout, stderr, status = process_manager.get_output(log_id)
-    if status != log.status:
-        log.status = status
-        if status == "stopped":
-            log.stopped_at = get_utc_now()
-        db.commit()
-    return {
-        "stdout": stdout,
-        "stderr": stderr,
-        "status": status,
-        "pid": log.pid,
-        "started_at": log.started_at.isoformat(),
-        "stopped_at": log.stopped_at.isoformat() if log.stopped_at else None
-    }
-
-@app.get("/api/projects/{project_id}/processes")
-async def get_project_processes(request: Request, project_id: int, db: Session = Depends(get_db)):
-    user = await require_auth(request, db)
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    processes = process_manager.get_project_processes(project_id)
-    logs = db.query(ProcessLog).filter(ProcessLog.project_id == project_id).all()
-    result = []
-    for log in logs:
-        proc = next((p for p in processes if p["log_id"] == log.id), None)
-        if proc:
-            result.append({
-                "id": log.id,
-                "pid": log.pid,
-                "status": log.status,
-                "running": proc["running"],
-                "started_at": log.started_at.isoformat(),
-                "stopped_at": log.stopped_at.isoformat() if log.stopped_at else None
-            })
-    return result
-
-# ─── Application Lifecycle ───
-@app.on_event("startup")
-async def startup_event():
-    db = SessionLocal()
-    try:
-        ensure_admin(db)
-        clean_old_logs(db)
-        print(f"Starting application in {config.ENVIRONMENT} mode")
-        print(f"Debug mode: {config.DEBUG}")
-        print(f"Database URL: {config.DATABASE_URL}")
-        print(f"Using database: {'PostgreSQL' if 'postgresql' in config.DATABASE_URL else 'SQLite'}")
-    except Exception as e:
-        print(f"Error during startup: {str(e)}")
-        raise
-    finally:
-        db.close()
-
-@app.on_event("startup")
-async def init_directories():
-    try:
-        os.makedirs(config.UPLOAD_DIR, exist_ok=True)
-        os.makedirs(config.PROJECTS_DIR, exist_ok=True)
-        print(f"Directories created/verified: {config.UPLOAD_DIR}, {config.PROJECTS_DIR}")
-    except Exception as e:
-        print(f"Error creating directories: {str(e)}")
-        raise
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    for log_id in list(process_manager.processes.keys()):
-        process_manager.stop(log_id)
-
-# ─── Main Execution ───
-if __name__ == "__main__":
-    import uvicorn
-    host = os.environ.get("HOST", "0.0.0.0")
-    port = int(os.environ.get("PORT", 8000))
-    reload = config.DEBUG and os.environ.get("RELOAD", "true").lower() == "true"
-    uvicorn.run("main:app", host=host, port=port, reload=reload)
