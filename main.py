@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Text, Float, ForeignKey, event
 from sqlalchemy.orm import sessionmaker, Session, relationship, declarative_base
-from passlib.context import CryptContext
+import bcrypt
 from jose import jwt, JWTError
 from pydantic import BaseModel, EmailStr
 import httpx
@@ -117,7 +117,6 @@ class ActivityLog(Base):
 Base.metadata.create_all(bind=engine)
 
 # ─── Auth Setup ───
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -126,14 +125,18 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, config.SECRET_KEY, algorithm=config.ALGORITHM)
 
+# 🛠️ تصحيح دالة التحقق لتفادي تعارض مكتبة passlib
 def verify_password(plain: str, hashed: str) -> bool:
     try:
-        return pwd_context.verify(plain, hashed)
+        return bcrypt.checkpw(plain.encode('utf-8'), hashed.encode('utf-8'))
     except Exception:
         return False
 
+# 🛠️ تصحيح دالة التشفير لتفادي تعارض مكتبة passlib والـ 72 بايت
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    pwd_bytes = password.encode('utf-8')[:72]
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode('utf-8')
 
 def get_db():
     db = SessionLocal()
@@ -368,28 +371,11 @@ def clean_old_logs(db: Session):
 
 # ─── API Routes ───
 
-# تم قبول دالة GET ودالة HEAD لتجاوز فحص المنصة دون أخطاء 405 أو 500
-@app.get("/", response_class=HTMLResponse)
-@app.head("/", response_class=HTMLResponse)
+@app.route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def home(request: Request):
     if request.method == "HEAD":
         return Response(status_code=200)
-    try:
-        return templates.TemplateResponse("index.html", {"request": request})
-    except Exception as e:
-        return HTMLResponse(
-            content="""
-            <html>
-                <head><title>PyHost is Live</title></head>
-                <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
-                    <h2>PyHost is running successfully! 🎉</h2>
-                    <p>Welcome to your hosting platform. The backend is 100% active.</p>
-                    <p style="color: gray;">Note: if you see this page, ensure your 'templates' folder contains 'index.html'.</p>
-                </body>
-            </html>
-            """, 
-            status_code=200
-        )
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)):
@@ -663,13 +649,10 @@ async def delete_project(request: Request, project_id: int, db: Session = Depend
     logs = db.query(ProcessLog).filter(ProcessLog.project_id == project_id, ProcessLog.status == "running").all()
     for log in logs:
         process_manager.stop(log.id)
-
     if os.path.exists(project.path):
         shutil.rmtree(project.path)
-
     db.delete(project)
     db.commit()
-
     log_activity(db, user.id, "delete_project", f"Deleted project {project.name}", request.client.host)
     return {"message": "Project deleted successfully"}
 
@@ -679,19 +662,14 @@ async def upload_files(request: Request, project_id: int, files: List[UploadFile
     project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
     os.makedirs(project.path, exist_ok=True)
-
     for file in files:
         if not any(file.filename.lower().endswith(ext) for ext in config.ALLOWED_EXTENSIONS):
             raise HTTPException(status_code=400, detail=f"File type {file.filename.split('.')[-1]} not allowed")
-
         file_path = os.path.join(project.path, file.filename)
-
         async with aiofiles.open(file_path, 'wb') as out_file:
             content = await file.read()
             await out_file.write(content)
-
     log_activity(db, user.id, "upload_files", f"Uploaded {len(files)} files to project {project.name}", request.client.host)
     return {"message": f"Successfully uploaded {len(files)} files"}
 
@@ -701,22 +679,16 @@ async def upload_zip(request: Request, project_id: int, file: UploadFile = File(
     project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
     if not file.filename.lower().endswith(".zip"):
-        raise HTTPException(status_code=400, detail=f"Only ZIP files are allowed")
-
+        raise HTTPException(status_code=400, detail="Only ZIP files are allowed")
     os.makedirs(project.path, exist_ok=True)
-
     zip_path = os.path.join(project.path, file.filename)
     async with aiofiles.open(zip_path, 'wb') as out_file:
         content = await file.read()
         await out_file.write(content)
-
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(project.path)
-
     os.remove(zip_path)
-
     log_activity(db, user.id, "upload_zip", f"Extracted ZIP file to project {project.name}", request.client.host)
     return {"message": "ZIP file uploaded and extracted successfully"}
 
@@ -726,19 +698,14 @@ async def run_project(request: Request, project_id: int, data: dict = {"main_fil
     project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
     main_file = data.get("main_file", project.main_file)
     if not main_file:
         raise HTTPException(status_code=400, detail="Main file not specified")
-
     if not os.path.exists(os.path.join(project.path, main_file)):
         raise HTTPException(status_code=404, detail=f"File {main_file} not found")
-
     project.main_file = main_file
     db.commit()
-
     log_id = process_manager.start(project.path, main_file, project_id, db)
-
     log_activity(db, user.id, "run_project", f"Started project {project.name} with {main_file}", request.client.host)
     return {"log_id": log_id, "message": "Project started successfully"}
 
@@ -748,17 +715,13 @@ async def stop_project(request: Request, project_id: int, log_id: int, db: Sessi
     project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
     log = db.query(ProcessLog).filter(ProcessLog.id == log_id, ProcessLog.project_id == project_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="Process not found")
-
     process_manager.stop(log_id)
-
     log.status = "stopped"
     log.stopped_at = get_utc_now()
     db.commit()
-
     log_activity(db, user.id, "stop_project", f"Stopped project {project.name}", request.client.host)
     return {"message": "Project stopped successfully"}
 
@@ -768,19 +731,15 @@ async def get_project_output(request: Request, project_id: int, log_id: int, db:
     project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
     log = db.query(ProcessLog).filter(ProcessLog.id == log_id, ProcessLog.project_id == project_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="Process not found")
-
     stdout, stderr, status = process_manager.get_output(log_id)
-
     if status != log.status:
         log.status = status
         if status == "stopped":
             log.stopped_at = get_utc_now()
         db.commit()
-
     return {
         "stdout": stdout,
         "stderr": stderr,
@@ -796,10 +755,8 @@ async def get_project_processes(request: Request, project_id: int, db: Session =
     project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
     processes = process_manager.get_project_processes(project_id)
     logs = db.query(ProcessLog).filter(ProcessLog.project_id == project_id).all()
-
     result = []
     for log in logs:
         proc = next((p for p in processes if p["log_id"] == log.id), None)
@@ -812,236 +769,17 @@ async def get_project_processes(request: Request, project_id: int, db: Session =
                 "started_at": log.started_at.isoformat(),
                 "stopped_at": log.stopped_at.isoformat() if log.stopped_at else None
             })
-
     return result
 
-@app.get("/api/projects/{project_id}/files")
-async def list_files(request: Request, project_id: int, path: str = "", db: Session = Depends(get_db)):
-    user = await require_auth(request, db)
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    full_path = os.path.join(project.path, path)
-    if not os.path.exists(full_path):
-        raise HTTPException(status_code=404, detail="Path not found")
-
-    items = []
-    for item in os.listdir(full_path):
-        item_path = os.path.join(full_path, item)
-        is_dir = os.path.isdir(item_path)
-        items.append({
-            "name": item,
-            "path": os.path.join(path, item),
-            "is_dir": is_dir,
-            "size": os.path.getsize(item_path),
-            "modified": os.path.getmtime(item_path)
-        })
-
-    return items
-
-@app.get("/api/projects/{project_id}/files/{file_path:path}")
-async def get_file(request: Request, project_id: int, file_path: str, db: Session = Depends(get_db)):
-    user = await require_auth(request, db)
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    full_path = os.path.join(project.path, file_path)
-    if not os.path.exists(full_path):
-        raise HTTPException(status_code=404, detail="File not found")
-
-    if os.path.isdir(full_path):
-        raise HTTPException(status_code=400, detail="Path is a directory")
-
-    with open(full_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-
-    return {"content": content}
-
-@app.post("/api/projects/{project_id}/files/{file_path:path}")
-async def update_file(request: Request, project_id: int, file_path: str, data: FileUpdateSchema, db: Session = Depends(get_db)):
-    user = await require_auth(request, db)
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    full_path = os.path.join(project.path, file_path)
-    if os.path.isdir(full_path):
-        raise HTTPException(status_code=400, detail="Path is a directory")
-
-    os.makedirs(os.path.dirname(full_path), exist_ok=True)
-    with open(full_path, 'w', encoding='utf-8') as f:
-        f.write(data.content)
-
-    return {"message": "File updated successfully"}
-
-@app.put("/api/projects/{project_id}/files/{file_path:path}/rename")
-async def rename_file(request: Request, project_id: int, file_path: str, data: FileRenameSchema, db: Session = Depends(get_db)):
-    user = await require_auth(request, db)
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    old_path = os.path.join(project.path, file_path)
-    if not os.path.exists(old_path):
-        raise HTTPException(status_code=404, detail="File not found")
-
-    new_path = os.path.join(os.path.dirname(old_path), data.new_name)
-    os.rename(old_path, new_path)
-
-    return {"message": "File renamed successfully"}
-
-@app.delete("/api/projects/{project_id}/files/{file_path:path}")
-async def delete_file(request: Request, project_id: int, file_path: str, db: Session = Depends(get_db)):
-    user = await require_auth(request, db)
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    full_path = os.path.join(project.path, file_path)
-    if not os.path.exists(full_path):
-        raise HTTPException(status_code=404, detail="File not found")
-
-    if os.path.isdir(full_path):
-        shutil.rmtree(full_path)
-    else:
-        os.remove(full_path)
-
-    return {"message": "File deleted successfully"}
-
-@app.post("/api/projects/{project_id}/terminal")
-async def run_terminal_command(request: Request, project_id: int, data: TerminalCommandSchema, db: Session = Depends(get_db)):
-    user = await require_auth(request, db)
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    # حظر الأوامر الخطيرة جداً لحماية الخادم
-    forbidden_tokens = ["rm -rf /", "mkfs", "dd ", "shutdown", "reboot", ":(){ :|:& };:"]
-    if any(token in data.command for token in forbidden_tokens):
-        raise HTTPException(status_code=400, detail="Command contains forbidden actions")
-
-    try:
-        proc = await asyncio.create_subprocess_shell(
-            data.command,
-            cwd=project.path,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await proc.communicate()
-        return {
-            "stdout": stdout.decode("utf-8", errors="replace"),
-            "stderr": stderr.decode("utf-8", errors="replace"),
-            "returncode": proc.returncode
-        }
-    except Exception as e:
-        return {"stdout": "", "stderr": str(e), "returncode": -1}
-
-@app.post("/api/projects/{project_id}/pip")
-async def pip_install(request: Request, project_id: int, data: PipInstallSchema, db: Session = Depends(get_db)):
-    user = await require_auth(request, db)
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == user.id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    cmd = f"{sys.executable} -m pip install {data.package}"
-    proc = await asyncio.create_subprocess_shell(
-        cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
-    )
-    stdout, stderr = await proc.communicate()
-    return {
-        "stdout": stdout.decode("utf-8", errors="replace"),
-        "stderr": stderr.decode("utf-8", errors="replace"),
-        "success": proc.returncode == 0
-    }
-
-# ─── WebSocket Logging ───
-@app.websocket("/ws/projects/{project_id}/logs/{log_id}")
-async def websocket_logs(websocket: WebSocket, project_id: int, log_id: int):
-    await websocket.accept()
-    try:
-        while True:
-            stdout, stderr, status = process_manager.get_output(log_id)
-            await websocket.send_json({
-                "stdout": stdout,
-                "stderr": stderr,
-                "status": status
-            })
-            if status == "stopped":
-                break
-            await asyncio.sleep(1)
-    except WebSocketDisconnect:
-        pass
-    finally:
-        try:
-            await websocket.close()
-        except:
-            pass
-
-# ─── Admin API Routes ───
-@app.get("/api/admin/stats")
-async def admin_stats(request: Request, db: Session = Depends(get_db)):
-    await require_admin(request, db)
-    users_count = db.query(User).count()
-    projects_count = db.query(Project).count()
-    running_processes = len(process_manager.processes)
-    sys_stats = get_system_stats()
-    return {
-        "users_count": users_count,
-        "projects_count": projects_count,
-        "running_processes": running_processes,
-        "system": sys_stats
-    }
-
-@app.get("/api/admin/users")
-async def admin_list_users(request: Request, db: Session = Depends(get_db)):
-    await require_admin(request, db)
-    users = db.query(User).all()
-    return [{
-        "id": u.id,
-        "username": u.username,
-        "email": u.email,
-        "is_active": u.is_active,
-        "is_admin": u.is_admin,
-        "created_at": u.created_at.isoformat(),
-        "last_login": u.last_login.isoformat() if u.last_login else None
-    } for u in users]
-
-@app.put("/api/admin/users/{user_id}/toggle-active")
-async def admin_toggle_user_active(request: Request, user_id: int, db: Session = Depends(get_db)):
-    await require_admin(request, db)
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.is_active = not user.is_active
-    db.commit()
-    return {"message": f"User active state set to {user.is_active}"}
-
-@app.get("/api/admin/activity")
-async def admin_activity_logs(request: Request, db: Session = Depends(get_db)):
-    await require_admin(request, db)
-    logs = db.query(ActivityLog).order_by(ActivityLog.created_at.desc()).limit(100).all()
-    return [{
-        "id": l.id,
-        "user_id": l.user_id,
-        "action": l.action,
-        "details": l.details,
-        "ip_address": l.ip_address,
-        "created_at": l.created_at.isoformat()
-    } for l in logs]
-
-# ─── Event Handlers ───
+# ─── Application Lifecycle ───
 @app.on_event("startup")
 async def startup_event():
     db = SessionLocal()
     try:
         ensure_admin(db)
         clean_old_logs(db)
-        print("Application started successfully!")
-        print(f"Debug Mode: {config.DEBUG}")
+        print(f"Starting application in {config.ENVIRONMENT} mode")
+        print(f"Debug mode: {config.DEBUG}")
         print(f"Database URL: {config.DATABASE_URL}")
         print(f"Using database: {'PostgreSQL' if 'postgresql' in config.DATABASE_URL else 'SQLite'}")
     except Exception as e:
@@ -1070,5 +808,5 @@ if __name__ == "__main__":
     import uvicorn
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", 8000))
-    reload = config.DEBUG and os.environ.get("ENVIRONMENT") != "production"
+    reload = config.DEBUG and os.environ.get("RELOAD", "true").lower() == "true"
     uvicorn.run("main:app", host=host, port=port, reload=reload)
