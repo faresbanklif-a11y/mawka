@@ -7,7 +7,7 @@ import zipfile
 import asyncio
 import subprocess
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from pathlib import Path
 from dotenv import load_dotenv
@@ -33,7 +33,6 @@ import config
 load_dotenv()
 
 # ─── Database Setup ───
-# استخدام إعدادات قاعدة البيانات المناسبة حسب النوع
 engine = create_engine(config.DATABASE_URL, connect_args=config.SQLALCHEMY_ENGINE_ARGS)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -46,6 +45,10 @@ if "sqlite" in config.DATABASE_URL:
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.close()
+
+# دالة مساعدة للحصول على الوقت الحالي بصيغة UTC متوافقة مع الإصدارات الحديثة
+def get_utc_now():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # ─── Models ───
 class User(Base):
@@ -61,7 +64,7 @@ class User(Base):
     verification_token = Column(String(200), default="")
     reset_token = Column(String(200), default="")
     reset_token_expires = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_utc_now)
     last_login = Column(DateTime, nullable=True)
     provider = Column(String(50), default="email")
     projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
@@ -76,8 +79,8 @@ class Project(Base):
     main_file = Column(String(200), default="main.py")
     language = Column(String(50), default="python")
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=get_utc_now)
+    updated_at = Column(DateTime, default=get_utc_now, onupdate=get_utc_now)
     owner = relationship("User", back_populates="projects")
 
 class ProcessLog(Base):
@@ -88,7 +91,7 @@ class ProcessLog(Base):
     output = Column(Text, default="")
     error = Column(Text, default="")
     status = Column(String(20), default="running")
-    started_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, default=get_utc_now)
     stopped_at = Column(DateTime, nullable=True)
 
 class UserSession(Base):
@@ -98,7 +101,7 @@ class UserSession(Base):
     token = Column(String(500))
     ip_address = Column(String(50))
     user_agent = Column(String(500))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_utc_now)
     expires_at = Column(DateTime)
     user = relationship("User", back_populates="sessions")
 
@@ -109,7 +112,7 @@ class ActivityLog(Base):
     action = Column(String(100))
     details = Column(Text, default="")
     ip_address = Column(String(50))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_utc_now)
 
 Base.metadata.create_all(bind=engine)
 
@@ -119,7 +122,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=Fals
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = get_utc_now() + (expires_delta or timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, config.SECRET_KEY, algorithm=config.ALGORITHM)
 
@@ -130,7 +133,6 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 def get_password_hash(password: str) -> str:
-    # التأكد من أن كلمة المرور ليست طويلة جدًا (مشكلة bcrypt 72 bytes)
     if len(password) > 72:
         password = password[:72]
     return pwd_context.hash(password)
@@ -238,10 +240,7 @@ class ProcessManager:
             info = self.processes[log_id]
             proc = info["process"]
             try:
-                if sys.platform == "win32":
-                    proc.terminate()
-                else:
-                    proc.terminate()
+                proc.terminate()
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 proc.kill()
@@ -365,7 +364,7 @@ def ensure_admin(db: Session):
     return admin
 
 def clean_old_logs(db: Session):
-    cutoff = datetime.utcnow() - timedelta(days=7)
+    cutoff = get_utc_now() - timedelta(days=7)
     db.query(ProcessLog).filter(ProcessLog.stopped_at < cutoff).delete()
     db.commit()
 
@@ -405,7 +404,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         raise HTTPException(status_code=400, detail="Incorrect email or password")
 
     access_token = create_access_token(data={"sub": str(user.id)})
-    user.last_login = datetime.utcnow()
+    user.last_login = get_utc_now()
     db.commit()
 
     log_activity(db, user.id, "login", f"User logged in from {request.client.host}", request.client.host)
@@ -416,7 +415,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         value=access_token,
         httponly=True,
         max_age=60 * 60 * 24 * 7,  # 7 days
-        expires=datetime.utcnow() + timedelta(days=7),
+        expires=get_utc_now() + timedelta(days=7),
         samesite="lax"
     )
     return response
@@ -498,7 +497,6 @@ async def google_login(request: Request, token: str, db: Session = Depends(get_d
 
         user_data = response.json()
         email = user_data["email"]
-        name = user_data["name"]
 
         user = db.query(User).filter(User.email == email).first()
         if not user:
@@ -518,7 +516,7 @@ async def google_login(request: Request, token: str, db: Session = Depends(get_d
             db.commit()
 
         access_token = create_access_token(data={"sub": str(user.id)})
-        user.last_login = datetime.utcnow()
+        user.last_login = get_utc_now()
         db.commit()
 
         log_activity(db, user.id, "login", f"Google login from {request.client.host}", request.client.host)
@@ -529,7 +527,7 @@ async def google_login(request: Request, token: str, db: Session = Depends(get_d
             value=access_token,
             httponly=True,
             max_age=60 * 60 * 24 * 7,
-            expires=datetime.utcnow() + timedelta(days=7),
+            expires=get_utc_now() + timedelta(days=7),
             samesite="lax"
         )
         return response
@@ -566,7 +564,7 @@ async def github_login(request: Request, token: str, db: Session = Depends(get_d
             db.commit()
 
         access_token = create_access_token(data={"sub": str(user.id)})
-        user.last_login = datetime.utcnow()
+        user.last_login = get_utc_now()
         db.commit()
 
         log_activity(db, user.id, "login", f"GitHub login from {request.client.host}", request.client.host)
@@ -577,7 +575,7 @@ async def github_login(request: Request, token: str, db: Session = Depends(get_d
             value=access_token,
             httponly=True,
             max_age=60 * 60 * 24 * 7,
-            expires=datetime.utcnow() + timedelta(days=7),
+            expires=get_utc_now() + timedelta(days=7),
             samesite="lax"
         )
         return response
@@ -645,12 +643,10 @@ async def delete_project(request: Request, project_id: int, db: Session = Depend
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Stop all running processes for this project
     logs = db.query(ProcessLog).filter(ProcessLog.project_id == project_id, ProcessLog.status == "running").all()
     for log in logs:
         process_manager.stop(log.id)
 
-    # Delete project directory
     if os.path.exists(project.path):
         shutil.rmtree(project.path)
 
@@ -667,7 +663,6 @@ async def upload_files(request: Request, project_id: int, files: List[UploadFile
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Create project directory if it doesn't exist
     os.makedirs(project.path, exist_ok=True)
 
     for file in files:
@@ -676,7 +671,6 @@ async def upload_files(request: Request, project_id: int, files: List[UploadFile
 
         file_path = os.path.join(project.path, file.filename)
 
-        # Save file
         async with aiofiles.open(file_path, 'wb') as out_file:
             content = await file.read()
             await out_file.write(content)
@@ -694,20 +688,16 @@ async def upload_zip(request: Request, project_id: int, file: UploadFile = File(
     if not file.filename.lower().endswith(".zip"):
         raise HTTPException(status_code=400, detail="Only ZIP files are allowed")
 
-    # Create project directory if it doesn't exist
     os.makedirs(project.path, exist_ok=True)
 
-    # Save ZIP file
     zip_path = os.path.join(project.path, file.filename)
     async with aiofiles.open(zip_path, 'wb') as out_file:
         content = await file.read()
         await out_file.write(content)
 
-    # Extract ZIP file
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(project.path)
 
-    # Remove ZIP file
     os.remove(zip_path)
 
     log_activity(db, user.id, "upload_zip", f"Extracted ZIP file to project {project.name}", request.client.host)
@@ -724,15 +714,12 @@ async def run_project(request: Request, project_id: int, data: dict = {"main_fil
     if not main_file:
         raise HTTPException(status_code=400, detail="Main file not specified")
 
-    # Check if file exists
     if not os.path.exists(os.path.join(project.path, main_file)):
         raise HTTPException(status_code=404, detail=f"File {main_file} not found")
 
-    # Update project main file
     project.main_file = main_file
     db.commit()
 
-    # Start process
     log_id = process_manager.start(project.path, main_file, project_id, db)
 
     log_activity(db, user.id, "run_project", f"Started project {project.name} with {main_file}", request.client.host)
@@ -745,17 +732,14 @@ async def stop_project(request: Request, project_id: int, log_id: int, db: Sessi
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Check if log belongs to this project
     log = db.query(ProcessLog).filter(ProcessLog.id == log_id, ProcessLog.project_id == project_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="Process not found")
 
-    # Stop process
     process_manager.stop(log_id)
 
-    # Update log status
     log.status = "stopped"
-    log.stopped_at = datetime.utcnow()
+    log.stopped_at = get_utc_now()
     db.commit()
 
     log_activity(db, user.id, "stop_project", f"Stopped project {project.name}", request.client.host)
@@ -768,19 +752,16 @@ async def get_project_output(request: Request, project_id: int, log_id: int, db:
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Check if log belongs to this project
     log = db.query(ProcessLog).filter(ProcessLog.id == log_id, ProcessLog.project_id == project_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="Process not found")
 
-    # Get output
     stdout, stderr, status = process_manager.get_output(log_id)
 
-    # Update log status
     if status != log.status:
         log.status = status
         if status == "stopped":
-            log.stopped_at = datetime.utcnow()
+            log.stopped_at = get_utc_now()
         db.commit()
 
     return {
@@ -946,7 +927,6 @@ async def download_item(request: Request, project_id: int, item_path: str, db: S
         raise HTTPException(status_code=404, detail="Item not found")
 
     if os.path.isdir(full_path):
-        # Create ZIP file
         zip_path = os.path.join(project.path, f"{item_path}.zip")
         with zipfile.ZipFile(zip_path, 'w') as zipf:
             for root, dirs, files in os.walk(full_path):
@@ -955,10 +935,8 @@ async def download_item(request: Request, project_id: int, item_path: str, db: S
                     arcname = os.path.relpath(file_path, full_path)
                     zipf.write(file_path, arcname)
 
-        # Return ZIP file
         return FileResponse(zip_path, filename=f"{item_path}.zip", media_type="application/zip")
     else:
-        # Return file
         return FileResponse(full_path, filename=item_path)
 
 @app.post("/api/projects/{project_id}/terminal")
@@ -968,11 +946,9 @@ async def execute_terminal_command(request: Request, project_id: int, data: Term
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Check if command is safe
     if any(cmd in data.command.lower() for cmd in ["rm -rf", "del /f/s", "format", "mkfs", "dd if", "shutdown", "reboot"]):
         raise HTTPException(status_code=400, detail="Command not allowed")
 
-    # Execute command
     proc = subprocess.Popen(
         data.command,
         cwd=project.path,
@@ -984,7 +960,6 @@ async def execute_terminal_command(request: Request, project_id: int, data: Term
 
     stdout, stderr = proc.communicate(timeout=30)
 
-    # Save command log
     log = ProcessLog(
         project_id=project_id,
         pid=proc.pid,
@@ -1010,11 +985,9 @@ async def install_package(request: Request, project_id: int, data: PipInstallSch
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Check if package name is safe
     if any(char in data.package for char in ["&", "|", ";", "`", "$", "(", ")", "{", "}", "[", "]", ">", "<", "*", "?", "!"]):
         raise HTTPException(status_code=400, detail="Package name contains invalid characters")
 
-    # Install package
     proc = subprocess.Popen(
         [sys.executable, "-m", "pip", "install", data.package],
         cwd=project.path,
@@ -1025,7 +998,6 @@ async def install_package(request: Request, project_id: int, data: PipInstallSch
 
     stdout, stderr = proc.communicate(timeout=300)
 
-    # Save command log
     log = ProcessLog(
         project_id=project_id,
         pid=proc.pid,
@@ -1071,7 +1043,6 @@ async def install_requirements(request: Request, project_id: int, db: Session = 
     if not os.path.exists(req_path):
         raise HTTPException(status_code=404, detail="requirements.txt not found")
 
-    # Install requirements
     proc = subprocess.Popen(
         [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
         cwd=project.path,
@@ -1082,7 +1053,6 @@ async def install_requirements(request: Request, project_id: int, db: Session = 
 
     stdout, stderr = proc.communicate(timeout=300)
 
-    # Save command log
     log = ProcessLog(
         project_id=project_id,
         pid=proc.pid,
@@ -1177,19 +1147,15 @@ async def delete_user(request: Request, user_id: int, db: Session = Depends(get_
     if user.id == admin_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
 
-    # Delete user's projects
     projects = db.query(Project).filter(Project.owner_id == user.id).all()
     for project in projects:
-        # Stop all running processes
         logs = db.query(ProcessLog).filter(ProcessLog.project_id == project.id, ProcessLog.status == "running").all()
         for log in logs:
             process_manager.stop(log.id)
 
-        # Delete project directory
         if os.path.exists(project.path):
             shutil.rmtree(project.path)
 
-    # Delete user
     db.delete(user)
     db.commit()
 
@@ -1240,12 +1206,10 @@ async def stop_process(request: Request, log_id: int, db: Session = Depends(get_
     if not log:
         raise HTTPException(status_code=404, detail="Process not found")
 
-    # Stop process
     process_manager.stop(log_id)
 
-    # Update log status
     log.status = "stopped"
-    log.stopped_at = datetime.utcnow()
+    log.stopped_at = get_utc_now()
     db.commit()
 
     log_activity(db, admin_user.id, "stop_process", f"Stopped process {log_id}", request.client.host)
@@ -1278,7 +1242,6 @@ async def get_logs(request: Request, limit: int = 100, db: Session = Depends(get
 async def get_admin_stats(request: Request, db: Session = Depends(get_db)):
     admin_user = await require_admin(request, db)
 
-    # Get user counts
     user_counts = {
         "total": db.query(User).count(),
         "active": db.query(User).filter(User.is_active == True).count(),
@@ -1286,20 +1249,17 @@ async def get_admin_stats(request: Request, db: Session = Depends(get_db)):
         "unverified": db.query(User).filter(User.is_verified == False).count()
     }
 
-    # Get project counts
     project_counts = {
         "total": db.query(Project).count(),
         "running": db.query(ProcessLog).filter(ProcessLog.status == "running").count()
     }
 
-    # Get activity counts
     activity_counts = {
-        "today": db.query(ActivityLog).filter(ActivityLog.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)).count(),
-        "week": db.query(ActivityLog).filter(ActivityLog.created_at >= datetime.utcnow() - timedelta(days=7)).count(),
-        "month": db.query(ActivityLog).filter(ActivityLog.created_at >= datetime.utcnow() - timedelta(days=30)).count()
+        "today": db.query(ActivityLog).filter(ActivityLog.created_at >= get_utc_now().replace(hour=0, minute=0, second=0, microsecond=0)).count(),
+        "week": db.query(ActivityLog).filter(ActivityLog.created_at >= get_utc_now() - timedelta(days=7)).count(),
+        "month": db.query(ActivityLog).filter(ActivityLog.created_at >= get_utc_now() - timedelta(days=30)).count()
     }
 
-    # Get system stats
     system_stats = get_system_stats()
 
     return {
@@ -1323,7 +1283,6 @@ async def get_settings(request: Request, db: Session = Depends(get_db)):
 async def update_settings(request: Request, data: dict, db: Session = Depends(get_db)):
     admin_user = await require_admin(request, db)
 
-    # Update settings in config (in-memory, will reset on restart)
     if "max_projects_per_user" in data:
         config.MAX_PROJECTS_PER_USER = int(data["max_projects_per_user"])
 
@@ -1335,8 +1294,10 @@ async def update_settings(request: Request, data: dict, db: Session = Depends(ge
 
     if "admin_email" in data:
         config.ADMIN_EMAIL = data["admin_email"]
-        admin.email = data["admin_email"]
-        db.commit()
+        admin = db.query(User).filter(User.is_admin == True).first()
+        if admin:
+            admin.email = data["admin_email"]
+            db.commit()
 
     log_activity(db, admin_user.id, "update_settings", "Updated admin settings", request.client.host)
     return {"message": "Settings updated successfully"}
@@ -1345,7 +1306,6 @@ async def update_settings(request: Request, data: dict, db: Session = Depends(ge
 async def get_system_info(request: Request, db: Session = Depends(get_db)):
     admin_user = await require_admin(request, db)
 
-    # Get disk usage for projects directory
     try:
         disk_stats = psutil.disk_usage(config.PROJECTS_DIR)
         disk_info = {
@@ -1357,7 +1317,6 @@ async def get_system_info(request: Request, db: Session = Depends(get_db)):
     except:
         disk_info = None
 
-    # Get process info
     process_info = {
         "python_version": sys.version,
         "platform": sys.platform,
@@ -1380,24 +1339,19 @@ async def get_system_info(request: Request, db: Session = Depends(get_db)):
 async def cleanup_system(request: Request, db: Session = Depends(get_db)):
     admin_user = await require_admin(request, db)
 
-    # Clean old logs
     clean_old_logs(db)
 
-    # Clean up old project files (older than 30 days)
-    cutoff = datetime.utcnow() - timedelta(days=30)
+    cutoff = get_utc_now() - timedelta(days=30)
     old_projects = db.query(Project).filter(Project.updated_at < cutoff).all()
 
     for project in old_projects:
-        # Stop all running processes
         logs = db.query(ProcessLog).filter(ProcessLog.project_id == project.id, ProcessLog.status == "running").all()
         for log in logs:
             process_manager.stop(log.id)
 
-        # Delete project directory
         if os.path.exists(project.path):
             shutil.rmtree(project.path)
 
-        # Delete project from database
         db.delete(project)
 
     db.commit()
@@ -1412,10 +1366,8 @@ async def websocket_endpoint(websocket: WebSocket, project_id: int, log_id: int)
 
     try:
         while True:
-            # Get output
             stdout, stderr, status = process_manager.get_output(log_id)
 
-            # Send output
             if stdout:
                 await websocket.send_json({"type": "stdout", "data": stdout})
 
@@ -1426,7 +1378,6 @@ async def websocket_endpoint(websocket: WebSocket, project_id: int, log_id: int)
                 await websocket.send_json({"type": "status", "data": status})
                 break
 
-            # Wait before checking again
             await asyncio.sleep(0.5)
     except WebSocketDisconnect:
         pass
@@ -1436,16 +1387,13 @@ async def websocket_endpoint(websocket: WebSocket, project_id: int, log_id: int)
 async def startup_event():
     db = SessionLocal()
     try:
-        # Ensure admin user exists
         ensure_admin(db)
-        # Clean old logs
         clean_old_logs(db)
         
-        # طباعة معلومات بدء التشغيل
         print(f"Starting application in {config.ENVIRONMENT} mode")
         print(f"Debug mode: {config.DEBUG}")
         print(f"Database URL: {config.DATABASE_URL}")
-        print(f"Using database: {"PostgreSQL" if "postgresql" in config.DATABASE_URL else "SQLite"}")
+        print(f"Using database: {'PostgreSQL' if 'postgresql' in config.DATABASE_URL else 'SQLite'}")
     except Exception as e:
         print(f"Error during startup: {str(e)}")
         raise
@@ -1455,7 +1403,6 @@ async def startup_event():
 @app.on_event("startup")
 async def init_directories():
     try:
-        # تأكد من وجود المجلدات الضرورية
         os.makedirs(config.UPLOAD_DIR, exist_ok=True)
         os.makedirs(config.PROJECTS_DIR, exist_ok=True)
         print(f"Directories created/verified: {config.UPLOAD_DIR}, {config.PROJECTS_DIR}")
@@ -1465,7 +1412,6 @@ async def init_directories():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    # Stop all running processes
     for log_id in list(process_manager.processes.keys()):
         process_manager.stop(log_id)
 
@@ -1473,16 +1419,13 @@ async def shutdown_event():
 if __name__ == "__main__":
     import uvicorn
     
-    # تحديد إعدادات التشغيل
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", 8000))
     reload = config.DEBUG and os.environ.get("ENVIRONMENT") != "production"
     
-    # طباعة معلومات التشغيل
     print(f"Starting server at http://{host}:{port}")
     print(f"Reload enabled: {reload}")
     
-    # تشغيل الخادم
     uvicorn.run(
         "main:app",
         host=host,
