@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyHost - استضافة مشاريع Python</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 50%;
+            animation: float 15s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0) translateX(0); }
+            50% { transform: translateY(-20px) translateX(10px); }
+            100% { transform: translateY(0) translateX(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 1s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+
+    <nav class="glass fixed top-0 w-full z-50 px-6 py-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-code text-purple-400 text-2xl"></i>
+                <h1 class="text-2xl font-bold gradient-text">PyHost</h1>
+            </div>
+            <div class="flex items-center space-x-6">
+                <a href="#features" class="hover:text-purple-400 transition">المميزات</a>
+                <a href="#about" class="hover:text-purple-400 transition">حول</a>
+                <a href="/login" class="btn px-4 py-2 rounded-lg">تسجيل الدخول</a>
+                <a href="/register" class="glass px-4 py-2 rounded-lg hover:bg-white/10 transition">إنشاء حساب</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="min-h-screen flex items-center justify-center px-6 pt-16">
+        <div class="container mx-auto text-center fade-in">
+            <h1 class="text-5xl md:text-7xl font-bold mb-6">
+                مرحباً بك في <span class="gradient-text">PyHost</span>
+            </h1>
+            <p class="text-xl md:text-2xl text-gray-300 mb-10 max-w-3xl mx-auto">
+                منصة متكاملة لاستضافة وتشغيل مشاريع Python وبوتات Telegram
+            </p>
+            <div class="flex flex-wrap justify-center gap-4">
+                <a href="/register" class="btn px-8 py-3 rounded-lg text-lg font-medium">
+                    ابدأ الآن
+                </a>
+                <a href="/dashboard" class="glass px-8 py-3 rounded-lg text-lg font-medium hover:bg-white/10">
+                    لوحة التحكم
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <section id="features" class="py-20 px-6">
+        <div class="container mx-auto">
+            <h2 class="text-4xl font-bold text-center mb-16">المميزات</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="card p-6 rounded-xl">
+                    <div class="text-purple-400 text-3xl mb-4">
+                        <i class="fas fa-rocket"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">تشغيل فوري</h3>
+                    <p class="text-gray-400">شغّل مشاريعك بضغطة زر، مع دعم متزامن للعديد من المشاريع</p>
+                </div>
+
+                <div class="card p-6 rounded-xl">
+                    <div class="text-purple-400 text-3xl mb-4">
+                        <i class="fas fa-terminal"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">طرفية تفاعلية</h3>
+                    <p class="text-gray-400">نفّذ الأوامر مباشرة من المتصفح، مع دعم pip وغيره من الأدوات</p>
+                </div>
+
+                <div class="card p-6 rounded-xl">
+                    <div class="text-purple-400 text-3xl mb-4">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">إدارة بوتات</h3>
+                    <p class="text-gray-400">أدر بوتات Telegram بسهولة، مع لوحة تحكم متقدمة</p>
+                </div>
+
+                <div class="card p-6 rounded-xl">
+                    <div class="text-purple-400 text-3xl mb-4">
+                        <i class="fas fa-code"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">محرر أكواد</h3>
+                    <p class="text-gray-400">محرر أكواد متقدم مع تلوين نحوي وتلميحات</p>
+                </div>
+
+                <div class="card p-6 rounded-xl">
+                    <div class="text-purple-400 text-3xl mb-4">
+                        <i class="fas fa-folder"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">مدير ملفات</h3>
+                    <p class="text-gray-400">أنشئ وحرر وحذف الملفات والمجلدات مباشرة من المتصفح</p>
+                </div>
+
+                <div class="card p-6 rounded-xl">
+                    <div class="text-purple-400 text-3xl mb-4">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">أمان متقدم</h3>
+                    <p class="text-gray-400">حماية كاملة مع JWT وغيرها من بروتوكولات الأمان</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="about" class="py-20 px-6">
+        <div class="container mx-auto">
+            <div class="glass p-8 rounded-xl max-w-4xl mx-auto">
+                <h2 class="text-3xl font-bold mb-6 text-center">لماذا PyHost؟</h2>
+                <p class="text-lg text-gray-300 mb-6 text-center">
+                    PyHost هي منصة متكاملة مصممة خصيصاً لمطوري Python ومسؤولي البوتات.
+                    توفر بيئة آمنة وسهلة الاستخدام لاستضافة وتشغيل مشاريعك دون الحاجة إلى إعدادات معقدة.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+                    <div class="text-center">
+                        <div class="text-4xl font-bold gradient-text mb-2">10+</div>
+                        <div class="text-gray-400">أنواع ملفات مدعومة</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-4xl font-bold gradient-text mb-2">24/7</div>
+                        <div class="text-gray-400">تشغيل مستمر</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-4xl font-bold gradient-text mb-2">100%</div>
+                        <div class="text-gray-400">مجاني</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="glass py-8 px-6 mt-20">
+        <div class="container mx-auto text-center">
+            <div class="flex justify-center items-center space-x-2 mb-4">
+                <i class="fas fa-code text-purple-400 text-2xl"></i>
+                <h2 class="text-2xl font-bold gradient-text">PyHost</h2>
+            </div>
+            <p class="text-gray-400">© 2025 جميع الحقوق محفوظة</p>
+        </div>
+    </footer>
+
+    <script>
+        // Create particles
+        const particlesContainer = document.getElementById('particles');
+        for (let i = 0; i < 50; i++) {
+            const particle = document.createElement('div');
+            particle.classList.add('particle');
+            particle.style.left = `${Math.random() * 100}%`;
+            particle.style.top = `${Math.random() * 100}%`;
+            particle.style.animationDelay = `${Math.random() * 15}s`;
+            particle.style.animationDuration = `${15 + Math.random() * 10}s`;
+            particlesContainer.appendChild(particle);
+        }
+
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

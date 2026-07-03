@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم - PyHost</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+        }
+
+        .btn-xs {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .input-field {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        .sidebar-item {
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 0.375rem;
+        }
+
+        .sidebar-item.active {
+            background: rgba(102, 126, 234, 0.2);
+            border-radius: 0.375rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+        }
+
+        .terminal {
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            font-family: 'Consolas', monospace;
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: 400px;
+            color: #e2e8f0;
+        }
+
+        .terminal-output {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .terminal-input {
+            display: flex;
+            align-items: center;
+            margin-top: 0.5rem;
+        }
+
+        .terminal-prompt {
+            color: #667eea;
+            margin-right: 0.5rem;
+        }
+
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 50%;
+            animation: float 15s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0) translateX(0); }
+            50% { transform: translateY(-20px) translateX(10px); }
+            100% { transform: translateY(0) translateX(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 1s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .toast.success {
+            background: #10B981;
+        }
+
+        .toast.error {
+            background: #EF4444;
+        }
+
+        .toast.info {
+            background: #3B82F6;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            overflow: hidden;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: #1e293b;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+        }
+
+        .file-tree {
+            font-family: 'Consolas', monospace;
+        }
+
+        .file-tree-item {
+            padding: 0.25rem 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .file-tree-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 0.25rem;
+        }
+
+        .file-tree-item.selected {
+            background: rgba(102, 126, 234, 0.2);
+            border-radius: 0.25rem;
+        }
+
+        .file-tree-folder {
+            margin-left: 1rem;
+            display: none;
+        }
+
+        .file-tree-folder.open {
+            display: block;
+        }
+
+        .code-editor {
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            font-family: 'Consolas', monospace;
+            padding: 1rem;
+            overflow: auto;
+            max-height: 500px;
+            color: #e2e8f0;
+        }
+
+        .code-editor textarea {
+            background: transparent;
+            border: none;
+            color: #e2e8f0;
+            font-family: 'Consolas', monospace;
+            font-size: 0.9rem;
+            width: 100%;
+            height: 100%;
+            resize: none;
+            outline: none;
+        }
+
+        .terminal-log {
+            font-family: 'Consolas', monospace;
+            background: #1a1a1a;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: 400px;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+
+    <div class="flex h-screen pt-16">
+        <!-- Sidebar -->
+        <div class="w-64 glass p-4">
+            <div class="mb-8">
+                <div class="flex items-center space-x-2 mb-6">
+                    <i class="fas fa-code text-purple-400 text-2xl"></i>
+                    <h1 class="text-xl font-bold gradient-text">PyHost</h1>
+                </div>
+
+                <div class="flex items-center space-x-3 mb-6 p-3 rounded-lg">
+                    <img src="{{ user.avatar or '/static/default-avatar.png' }}" alt="Avatar" class="w-10 h-10 rounded-full">
+                    <div>
+                        <div class="font-medium">{{ user.username }}</div>
+                        <div class="text-xs text-gray-400">{{ user.email }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <nav>
+                <a href="#" class="sidebar-item active flex items-center space-x-3 p-3 rounded-lg" data-section="projects">
+                    <i class="fas fa-folder"></i>
+                    <span>المشاريع</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg" data-section="terminal">
+                    <i class="fas fa-terminal"></i>
+                    <span>الطرفية</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg" data-section="files">
+                    <i class="fas fa-file"></i>
+                    <span>الملفات</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg" data-section="bots">
+                    <i class="fas fa-robot"></i>
+                    <span>البوتات</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg" data-section="resources">
+                    <i class="fas fa-chart-line"></i>
+                    <span>الموارد</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg" data-section="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>الإعدادات</span>
+                </a>
+                <a href="#" class="sidebar-item flex items-center space-x-3 p-3 rounded-lg" data-section="logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>تسجيل الخروج</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-auto">
+            <!-- Header -->
+            <div class="glass p-4 flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-bold" id="pageTitle">المشاريع</h2>
+                    <p class="text-gray-400 text-sm">إدارة مشاريعك</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="newProjectBtn" class="btn btn-sm">
+                        <i class="fas fa-plus mr-2"></i>مشروع جديد
+                    </button>
+                    <button id="notificationBtn" class="relative p-2 rounded-lg hover:bg-white/10 transition">
+                        <i class="fas fa-bell"></i>
+                        <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button id="themeToggle" class="p-2 rounded-lg hover:bg-white/10 transition">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                        <img src="{{ user.avatar or '/static/default-avatar.png' }}" alt="Avatar" class="w-8 h-8 rounded-full">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Projects Section -->
+            <div id="projectsSection" class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for project in projects %}
+                    <div class="card p-6 rounded-xl fade-in">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold">{{ project.name }}</h3>
+                                <p class="text-gray-400 text-sm">{{ project.description }}</p>
+                            </div>
+                            <div class="flex space-x-1">
+                                <button class="project-action p-1 rounded hover:bg-white/10" data-action="edit" data-id="{{ project.id }}">
+                                    <i class="fas fa-edit text-sm"></i>
+                                </button>
+                                <button class="project-action p-1 rounded hover:bg-white/10" data-action="delete" data-id="{{ project.id }}">
+                                    <i class="fas fa-trash text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>المساحة المستخدمة</span>
+                                <span>45%</span>
+                            </div>
+                            <div class="progress-bar h-2">
+                                <div class="progress-fill" style="width: 45%"></div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-400">{{ project.created_at.strftime('%Y-%m-%d') }}</span>
+                            <button class="btn btn-xs" data-action="run" data-id="{{ project.id }}">
+                                <i class="fas fa-play mr-1"></i>تشغيل
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Terminal Section -->
+            <div id="terminalSection" class="p-6 hidden">
+                <div class="card p-6 rounded-xl">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold">الطرفية</h3>
+                        <div class="flex space-x-2">
+                            <button id="clearTerminal" class="glass px-3 py-1 rounded-lg text-sm hover:bg-white/10 transition">
+                                <i class="fas fa-eraser mr-1"></i>مسح
+                            </button>
+                            <button id="runCommand" class="btn btn-sm">
+                                <i class="fas fa-play mr-1"></i>تشغيل
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="terminal mb-4" id="terminalOutput">
+                        <div class="terminal-output">$ Python Terminal v1.0</div>
+                        <div class="terminal-output">Type 'help' for available commands</div>
+                    </div>
+
+                    <div class="terminal-input">
+                        <span class="terminal-prompt">$</span>
+                        <input type="text" id="terminalInput" class="flex-1 bg-transparent outline-none" placeholder="Enter command...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Files Section -->
+            <div id="filesSection" class="p-6 hidden">
+                <div class="card p-6 rounded-xl">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold">مدير الملفات</h3>
+                        <div class="flex space-x-2">
+                            <button id="uploadFile" class="btn btn-sm">
+                                <i class="fas fa-upload mr-1"></i>رفع ملف
+                            </button>
+                            <button id="createFolder" class="glass px-3 py-1 rounded-lg text-sm hover:bg-white/10 transition">
+                                <i class="fas fa-folder-plus mr-1"></i>مجلد جديد
+                            </button>
+                            <button id="createFile" class="glass px-3 py-1 rounded-lg text-sm hover:bg-white/10 transition">
+                                <i class="fas fa-file-plus mr-1"></i>ملف جديد
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-1">
+                            <div class="glass p-4 rounded-xl h-[500px] overflow-hidden">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="font-medium">هيكل الملفات</h4>
+                                    <input type="text" id="searchFiles" class="input-field px-2 py-1 rounded text-sm w-32" placeholder="بحث...">
+                                </div>
+
+                                <div class="file-tree overflow-y-auto h-[400px]" id="fileTree">
+                                    <!-- File tree will be populated dynamically -->
+                                    <div class="file-tree-item">
+                                        <i class="fas fa-folder text-yellow-400 mr-2"></i>
+                                        <span>المشروع</span>
+                                        <i class="fas fa-chevron-down ml-auto text-xs"></i>
+                                    </div>
+                                    <div class="file-tree-folder">
+                                        <div class="file-tree-item">
+                                            <i class="fas fa-file-code text-blue-400 mr-2"></i>
+                                            <span>main.py</span>
+                                        </div>
+                                        <div class="file-tree-item">
+                                            <i class="fas fa-file text-green-400 mr-2"></i>
+                                            <span>requirements.txt</span>
+                                        </div>
+                                        <div class="file-tree-item">
+                                            <i class="fas fa-folder text-yellow-400 mr-2"></i>
+                                            <span>static</span>
+                                            <i class="fas fa-chevron-down ml-auto text-xs"></i>
+                                        </div>
+                                        <div class="file-tree-folder">
+                                            <div class="file-tree-item">
+                                                <i class="fas fa-file-image text-purple-400 mr-2"></i>
+                                                <span>style.css</span>
+                                            </div>
+                                            <div class="file-tree-item">
+                                                <i class="fas fa-file-code text-blue-400 mr-2"></i>
+                                                <span>app.js</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-2">
+                            <div class="glass p-4 rounded-xl h-[500px] flex flex-col">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="font-medium" id="fileName">main.py</h4>
+                                    <div class="flex space-x-2">
+                                        <button id="saveFile" class="btn btn-xs">
+                                            <i class="fas fa-save mr-1"></i>حفظ
+                                        </button>
+                                        <button id="runFile" class="btn btn-xs">
+                                            <i class="fas fa-play mr-1"></i>تشغيل
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="code-editor flex-1" id="codeEditor">
+                                    <textarea id="fileContent" spellcheck="false">print("Hello, PyHost!")</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bots Section -->
+            <div id="botsSection" class="p-6 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="card p-6 rounded-xl">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold">Telegram Bot Manager</h3>
+                                <p class="text-gray-400 text-sm">إدارة بوتاتك</p>
+                            </div>
+                            <button class="btn btn-sm">
+                                <i class="fas fa-plus mr-1"></i>إضافة بوت
+                            </button>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="glass p-4 rounded-lg">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                                        <span>MyBot</span>
+                                    </div>
+                                    <div class="flex space-x-1">
+                                        <button class="p-1 rounded hover:bg-white/10">
+                                            <i class="fas fa-sync text-sm"></i>
+                                        </button>
+                                        <button class="p-1 rounded hover:bg-white/10">
+                                            <i class="fas fa-trash text-sm"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="text-xs text-gray-400">
+                                    <div>الحالة: متصل</div>
+                                    <div>المستخدمون: 1,234</div>
+                                    <div>الوقت التشغيلي: 3d 5h</div>
+                                </div>
+                            </div>
+
+                            <div class="glass p-4 rounded-lg">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div class="flex items-center">
+                                        <div class="w-3 h-3 rounded-full bg-gray-500 mr-2"></div>
+                                        <span>NotiBot</span>
+                                    </div>
+                                    <div class="flex space-x-1">
+                                        <button class="p-1 rounded hover:bg-white/10">
+                                            <i class="fas fa-sync text-sm"></i>
+                                        </button>
+                                        <button class="p-1 rounded hover:bg-white/10">
+                                            <i class="fas fa-trash text-sm"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="text-xs text-gray-400">
+                                    <div>الحالة: متوقف</div>
+                                    <div>المستخدمون: 567</div>
+                                    <div>الوقت التشغيلي: 1d 2h</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card p-6 rounded-xl">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold">Bot Logs</h3>
+                                <p class="text-gray-400 text-sm">سجل الأحداث</p>
+                            </div>
+                            <button class="btn btn-xs">
+                                <i class="fas fa-sync mr-1"></i>تحديث
+                            </button>
+                        </div>
+
+                        <div class="terminal-log">
+                            <div class="text-green-400">[2025-05-15 14:30:22] Bot started successfully</div>
+                            <div class="text-blue-400">[2025-05-15 14:30:25] Connected to Telegram API</div>
+                            <div class="text-yellow-400">[2025-05-15 14:31:12] Received new command: /start</div>
+                            <div class="text-green-400">[2025-05-15 14:31:12] Command processed successfully</div>
+                            <div class="text-blue-400">[2025-05-15 14:32:05] Received new command: /help</div>
+                            <div class="text-green-400">[2025-05-15 14:32:05] Command processed successfully</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resources Section -->
+            <div id="resourcesSection" class="p-6 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                    <div class="card p-6 rounded-xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center">
+                                <i class="fas fa-microchip text-purple-400 text-xl"></i>
+                            </div>
+                            <div class="text-xs text-gray-400">الاستخدام</div>
+                        </div>
+                        <div class="text-2xl font-bold mb-1">{{ stats.cpu_percent }}%</div>
+                        <div class="text-xs text-gray-400">المعالج</div>
+                        <div class="mt-2">
+                            <div class="progress-bar h-1">
+                                <div class="progress-fill" style="width: {{ stats.cpu_percent }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card p-6 rounded-xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                <i class="fas fa-memory text-blue-400 text-xl"></i>
+                            </div>
+                            <div class="text-xs text-gray-400">الاستخدام</div>
+                        </div>
+                        <div class="text-2xl font-bold mb-1">{{ stats.ram_percent }}%</div>
+                        <div class="text-xs text-gray-400">الذاكرة</div>
+                        <div class="mt-2">
+                            <div class="progress-bar h-1">
+                                <div class="progress-fill" style="width: {{ stats.ram_percent }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card p-6 rounded-xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+                                <i class="fas fa-hdd text-green-400 text-xl"></i>
+                            </div>
+                            <div class="text-xs text-gray-400">الاستخدام</div>
+                        </div>
+                        <div class="text-2xl font-bold mb-1">{{ stats.disk_percent }}%</div>
+                        <div class="text-xs text-gray-400">القرص</div>
+                        <div class="mt-2">
+                            <div class="progress-bar h-1">
+                                <div class="progress-fill" style="width: {{ stats.disk_percent }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card p-6 rounded-xl">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                                <i class="fas fa-network-wired text-yellow-400 text-xl"></i>
+                            </div>
+                            <div class="text-xs text-gray-400">الاستخدام</div>
+                        </div>
+                        <div class="text-2xl font-bold mb-1">45%</div>
+                        <div class="text-xs text-gray-400">الشبكة</div>
+                        <div class="mt-2">
+                            <div class="progress-bar h-1">
+                                <div class="progress-fill" style="width: 45%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="card p-6 rounded-xl">
+                        <h3 class="text-lg font-bold mb-4">نظام التشغيل</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">الإصدار</span>
+                                <span>Windows 10</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">المعالج</span>
+                                <span>{{ stats.cpu_count }} Cores</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">الذاكرة</span>
+                                <span>{{ (stats.ram_total / (1024**3))|round(1) }} GB</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">الوقت التشغيلي</span>
+                                <span>{{ (stats.boot_time / 86400)|round(1) }} days</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card p-6 rounded-xl">
+                        <h3 class="text-lg font-bold mb-4">المهارات النشطة</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">المهام النشطة</span>
+                                <span>{{ stats.processes }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">الخيوط النشطة</span>
+                                <span>{{ stats.threads }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">درجة الحرارة</span>
+                                <span>{{ stats.cpu_temp }}°C</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">شبكة وارد</span>
+                                <span>{{ (stats.net_recv / 1024**2)|round(1) }} MB</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Section -->
+            <div id="settingsSection" class="p-6 hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1">
+                        <div class="glass p-4 rounded-xl">
+                            <h3 class="text-lg font-bold mb-4">الإعدادات</h3>
+                            <nav class="space-y-2">
+                                <a href="#" class="settings-item flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition" data-setting="profile">
+                                    <i class="fas fa-user"></i>
+                                    <span>الملف الشخصي</span>
+                                </a>
+                                <a href="#" class="settings-item flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition" data-setting="security">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <span>الأمان</span>
+                                </a>
+                                <a href="#" class="settings-item flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition" data-setting="preferences">
+                                    <i class="fas fa-cog"></i>
+                                    <span>تفضيلات</span>
+                                </a>
+                                <a href="#" class="settings-item flex items-center space-x-3 p-3 rounded-lg hover:bg-white/10 transition" data-setting="notifications">
+                                    <i class="fas fa-bell"></i>
+                                    <span>الإشعارات</span>
+                                </a>
+                            </nav>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2">
+                        <div class="glass p-6 rounded-xl">
+                            <h3 class="text-lg font-bold mb-6">الملف الشخصي</h3>
+
+                            <form class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-gray-300 mb-2">الاسم</label>
+                                        <input type="text" value="{{ user.username }}" class="input-field w-full px-4 py-3 rounded-lg focus:outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-300 mb-2">البريد الإلكتروني</label>
+                                        <input type="email" value="{{ user.email }}" class="input-field w-full px-4 py-3 rounded-lg focus:outline-none">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-gray-300 mb-2">الصورة الشخصية</label>
+                                    <div class="flex items-center space-x-4">
+                                        <img src="{{ user.avatar or '/static/default-avatar.png' }}" alt="Avatar" class="w-16 h-16 rounded-full">
+                                        <button type="button" class="btn btn-sm">
+                                            <i class="fas fa-upload mr-1"></i>تحديث الصورة
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-gray-300 mb-2">نبذة عني</label>
+                                    <textarea class="input-field w-full px-4 py-3 rounded-lg focus:outline-none" rows="4" placeholder="أكتب نبذة عنك...">مطور Python ومهتم بالذكاء الاصطناعي</textarea>
+                                </div>
+
+                                <div class="flex justify-end">
+                                    <button type="button" class="glass px-4 py-2 rounded-lg hover:bg-white/10 transition mr-2">
+                                        إلغاء
+                                    </button>
+                                    <button type="submit" class="btn px-4 py-2 rounded-lg">
+                                        حفظ التغييرات
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Project Modal -->
+    <div id="newProjectModal" class="modal">
+        <div class="modal-content max-w-md w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">مشروع جديد</h3>
+                <button class="close-modal text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="newProjectForm" class="space-y-4">
+                <div>
+                    <label class="block text-gray-300 mb-2">اسم المشروع</label>
+                    <input type="text" id="projectName" required class="input-field w-full px-4 py-3 rounded-lg focus:outline-none" placeholder="اسم المشروع">
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 mb-2">الوصف</label>
+                    <textarea id="projectDescription" rows="3" class="input-field w-full px-4 py-3 rounded-lg focus:outline-none" placeholder="وصف المشروع"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 mb-2">القالب</label>
+                    <select id="projectTemplate" class="input-field w-full px-4 py-3 rounded-lg focus:outline-none">
+                        <option value="empty">مشروع فارغ</option>
+                        <option value="web">تطبيق ويب</option>
+                        <option value="bot">بوت تليجرام</option>
+                        <option value="api">API</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <button type="button" class="close-modal glass px-4 py-2 rounded-lg hover:bg-white/10 transition">
+                        إلغاء
+                    </button>
+                    <button type="submit" class="btn px-4 py-2 rounded-lg">
+                        إنشاء المشروع
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Upload File Modal -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content max-w-md w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">رفع ملف</h3>
+                <button class="close-modal text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="uploadForm" class="space-y-4">
+                <div>
+                    <label class="block text-gray-300 mb-2">اختر الملف</label>
+                    <input type="file" id="fileInput" required class="w-full">
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 mb-2">المجلد الهدف</label>
+                    <select id="targetFolder" class="input-field w-full px-4 py-3 rounded-lg focus:outline-none">
+                        <option value="/">الجذر</option>
+                        <option value="/static">static</option>
+                        <option value="/templates">templates</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <button type="button" class="close-modal glass px-4 py-2 rounded-lg hover:bg-white/10 transition">
+                        إلغاء
+                    </button>
+                    <button type="submit" class="btn px-4 py-2 rounded-lg">
+                        رفع الملف
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // Create particles
+        const particlesContainer = document.getElementById('particles');
+        for (let i = 0; i < 50; i++) {
+            const particle = document.createElement('div');
+            particle.classList.add('particle');
+            particle.style.left = `${Math.random() * 100}%`;
+            particle.style.top = `${Math.random() * 100}%`;
+            particle.style.animationDelay = `${Math.random() * 15}s`;
+            particle.style.animationDuration = `${15 + Math.random() * 10}s`;
+            particlesContainer.appendChild(particle);
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Navigation
+        const sidebarItems = document.querySelectorAll('.sidebar-item');
+        const sections = {
+            'projects': document.getElementById('projectsSection'),
+            'terminal': document.getElementById('terminalSection'),
+            'files': document.getElementById('filesSection'),
+            'bots': document.getElementById('botsSection'),
+            'resources': document.getElementById('resourcesSection'),
+            'settings': document.getElementById('settingsSection')
+        };
+
+        const pageTitle = document.getElementById('pageTitle');
+        const pageTitles = {
+            'projects': 'المشاريع',
+            'terminal': 'الطرفية',
+            'files': 'الملفات',
+            'bots': 'البوتات',
+            'resources': 'الموارد',
+            'settings': 'الإعدادات'
+        };
+
+        sidebarItems.forEach(item => {
+            item.addEventListener('click', function() {
+                const section = this.getAttribute('data-section');
+
+                if (section === 'logout') {
+                    if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+                        window.location.href = '/api/auth/logout';
+                    }
+                    return;
+                }
+
+                // Update active state
+                sidebarItems.forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+
+                // Show/hide sections
+                Object.keys(sections).forEach(key => {
+                    if (key === section) {
+                        sections[key].classList.remove('hidden');
+                        sections[key].classList.add('fade-in');
+                    } else {
+                        sections[key].classList.add('hidden');
+                    }
+                });
+
+                // Update page title
+                pageTitle.textContent = pageTitles[section] || 'الصفحة';
+            });
+        });
+
+        // Modal controls
+        const modals = document.querySelectorAll('.modal');
+        const closeButtons = document.querySelectorAll('.close-modal');
+
+        closeButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                this.closest('.modal').classList.remove('show');
+            });
+        });
+
+        modals.forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('show');
+                }
+            });
+        });
+
+        // New project modal
+        const newProjectBtn = document.getElementById('newProjectBtn');
+        const newProjectModal = document.getElementById('newProjectModal');
+
+        newProjectBtn.addEventListener('click', function() {
+            newProjectModal.classList.add('show');
+        });
+
+        document.getElementById('newProjectForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('projectName').value;
+            const description = document.getElementById('projectDescription').value;
+
+            try {
+                const response = await fetch('/api/projects', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        description: description
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showToast('تم إنشاء المشروع بنجاح');
+                    newProjectModal.classList.remove('show');
+                    // Reload projects section after a short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showToast(data.detail || 'فشل إنشاء المشروع', 'error');
+                }
+            } catch (error) {
+                showToast('حدث خطأ أثناء الاتصال بالخادم', 'error');
+            }
+        });
+
+        // Upload file modal
+        const uploadFileBtn = document.getElementById('uploadFile');
+        const uploadModal = document.getElementById('uploadModal');
+
+        uploadFileBtn.addEventListener('click', function() {
+            uploadModal.classList.add('show');
+        });
+
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const fileInput = document.getElementById('fileInput');
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('/api/files/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showToast('تم رفع الملف بنجاح');
+                    uploadModal.classList.remove('show');
+                } else {
+                    showToast(data.detail || 'فشل رفع الملف', 'error');
+                }
+            } catch (error) {
+                showToast('حدث خطأ أثناء الاتصال بالخادم', 'error');
+            }
+        });
+
+        // Terminal functionality
+        const terminalInput = document.getElementById('terminalInput');
+        const terminalOutput = document.getElementById('terminalOutput');
+        const clearTerminalBtn = document.getElementById('clearTerminal');
+        const runCommandBtn = document.getElementById('runCommand');
+
+        terminalInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const command = this.value.trim();
+                if (command) {
+                    // Add command to output
+                    terminalOutput.innerHTML += `<div class="terminal-output">$ ${command}</div>`;
+
+                    // Process command
+                    processCommand(command);
+
+                    // Clear input
+                    this.value = '';
+
+                    // Scroll to bottom
+                    terminalOutput.scrollTop = terminalOutput.scrollHeight;
+                }
+            }
+        });
+
+        clearTerminalBtn.addEventListener('click', function() {
+            terminalOutput.innerHTML = '<div class="terminal-output">$ Python Terminal v1.0</div><div class="terminal-output">Type \'help\' for available commands</div>';
+        });
+
+        runCommandBtn.addEventListener('click', function() {
+            const command = terminalInput.value.trim();
+            if (command) {
+                terminalInput.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter' }));
+            }
+        });
+
+        function processCommand(command) {
+            // Simple command processor
+            const output = document.createElement('div');
+            output.className = 'terminal-output';
+
+            if (command === 'help') {
+                output.textContent = 'Available commands: help, clear, ls, date, python, exit';
+            } else if (command === 'clear') {
+                terminalOutput.innerHTML = '<div class="terminal-output">$ Python Terminal v1.0</div><div class="terminal-output">Type \'help\' for available commands</div>';
+                return;
+            } else if (command === 'ls') {
+                output.textContent = 'main.py  requirements.txt  static/  templates/';
+            } else if (command === 'date') {
+                output.textContent = new Date().toLocaleString();
+            } else if (command.startsWith('python ')) {
+                const code = command.substring(7);
+                try {
+                    // This is a simple demo - in a real app, this would be executed safely
+                    output.textContent = `Executing Python code: ${code}\nOutput: Hello, World!`;
+                } catch (error) {
+                    output.textContent = `Error: ${error.message}`;
+                }
+            } else if (command === 'exit') {
+                showToast('تم إغلاق الطرفية', 'info');
+                return;
+            } else {
+                output.textContent = `Unknown command: ${command}. Type 'help' for available commands.`;
+            }
+
+            terminalOutput.appendChild(output);
+        }
+
+        // File tree functionality
+        const fileTreeItems = document.querySelectorAll('.file-tree-item');
+
+        fileTreeItems.forEach(item => {
+            item.addEventListener('click', function() {
+                // Toggle folder
+                const folder = this.nextElementSibling;
+                if (folder && folder.classList.contains('file-tree-folder')) {
+                    folder.classList.toggle('open');
+                    const chevron = this.querySelector('.fa-chevron-down, .fa-chevron-right');
+                    if (chevron) {
+                        chevron.classList.toggle('fa-chevron-down');
+                        chevron.classList.toggle('fa-chevron-right');
+                    }
+                }
+
+                // Select file
+                fileTreeItems.forEach(i => i.classList.remove('selected'));
+                this.classList.add('selected');
+
+                // Update editor
+                const fileName = this.querySelector('span').textContent;
+                document.getElementById('fileName').textContent = fileName;
+
+                // In a real app, this would load the file content
+                if (fileName.endsWith('.py')) {
+                    document.getElementById('fileContent').value = `# ${fileName}\n\nprint("Hello, PyHost!")`;
+                } else if (fileName.endsWith('.txt')) {
+                    document.getElementById('fileContent').value = `# ${fileName}\n\nSample text file content`;
+                } else {
+                    document.getElementById('fileContent').value = `<!-- ${fileName} -->\n\nSample content`;
+                }
+            });
+        });
+
+        // Save file
+        document.getElementById('saveFile').addEventListener('click', function() {
+            showToast('تم حفظ الملف بنجاح', 'success');
+        });
+
+        // Run file
+        document.getElementById('runFile').addEventListener('click', function() {
+            showToast('تم تشغيل الملف بنجاح', 'success');
+        });
+
+        // Theme toggle
+        const themeToggle = document.getElementById('themeToggle');
+        themeToggle.addEventListener('click', function() {
+            document.body.classList.toggle('dark');
+            const icon = this.querySelector('i');
+            if (icon.classList.contains('fa-moon')) {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+        });
+
+        // Project actions
+        const projectActions = document.querySelectorAll('.project-action');
+        projectActions.forEach(action => {
+            action.addEventListener('click', function() {
+                const actionType = this.getAttribute('data-action');
+                const projectId = this.getAttribute('data-id');
+
+                if (actionType === 'delete') {
+                    if (confirm('هل أنت متأكد من حذف هذا المشروع؟')) {
+                        // In a real app, this would make an API call
+                        showToast('تم حذف المشروع بنجاح', 'success');
+                        // Reload after a delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    }
+                } else if (actionType === 'edit') {
+                    showToast('فتح محرر المشروع', 'info');
+                } else if (actionType === 'run') {
+                    showToast('تشغيل المشروع', 'success');
+                }
+            });
+        });
+
+        // Settings navigation
+        const settingsItems = document.querySelectorAll('.settings-item');
+        settingsItems.forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                settingsItems.forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+
+                // In a real app, this would load the appropriate settings form
+                const setting = this.getAttribute('data-setting');
+                showToast(`فتح إعدادات ${setting}`, 'info');
+            });
+        });
+
+        // Form submission for settings
+        const settingsForm = document.querySelector('#settingsSection form');
+        if (settingsForm) {
+            settingsForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                showToast('تم حفظ الإعدادات بنجاح', 'success');
+            });
+        }
+    </script>
+</body>
+</html>

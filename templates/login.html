@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل الدخول - PyHost</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .input-field {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        .social-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .social-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .google:hover {
+            background: #DB4437;
+            border-color: #DB4437;
+        }
+
+        .github:hover {
+            background: #333;
+            border-color: #333;
+        }
+
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 50%;
+            animation: float 15s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0) translateX(0); }
+            50% { transform: translateY(-20px) translateX(10px); }
+            100% { transform: translateY(0) translateX(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 1s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .toast.success {
+            background: #10B981;
+        }
+
+        .toast.error {
+            background: #EF4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+
+    <nav class="glass fixed top-0 w-full z-50 px-6 py-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-code text-purple-400 text-2xl"></i>
+                <h1 class="text-2xl font-bold gradient-text">PyHost</h1>
+            </div>
+            <div class="flex items-center space-x-6">
+                <a href="/" class="hover:text-purple-400 transition">الرئيسية</a>
+                <a href="/register" class="btn px-4 py-2 rounded-lg">إنشاء حساب</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="min-h-screen flex items-center justify-center px-6 pt-16">
+        <div class="container mx-auto max-w-md">
+            <div class="glass p-8 rounded-xl fade-in">
+                <div class="text-center mb-8">
+                    <i class="fas fa-code text-purple-400 text-5xl mb-4"></i>
+                    <h2 class="text-3xl font-bold mb-2">مرحباً بعودتك</h2>
+                    <p class="text-gray-400">تسجيل الدخول إلى حسابك</p>
+                </div>
+
+                <form id="loginForm" class="space-y-6">
+                    <div>
+                        <label class="block text-gray-300 mb-2">البريد الإلكتروني</label>
+                        <div class="relative">
+                            <i class="fas fa-envelope absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            <input type="email" id="email" name="email" required 
+                                class="w-full pl-10 pr-4 py-3 rounded-lg input-field focus:outline-none"
+                                placeholder="example@email.com">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-300 mb-2">كلمة المرور</label>
+                        <div class="relative">
+                            <i class="fas fa-lock absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            <input type="password" id="password" name="password" required 
+                                class="w-full pl-10 pr-4 py-3 rounded-lg input-field focus:outline-none"
+                                placeholder="••••••••">
+                            <i class="fas fa-eye-slash absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 cursor-pointer" id="togglePassword"></i>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center">
+                            <input type="checkbox" class="mr-2">
+                            <span class="text-gray-300">تذكرني</span>
+                        </label>
+                        <a href="#" class="text-purple-400 hover:text-purple-300">نسيت كلمة المرور؟</a>
+                    </div>
+
+                    <button type="submit" class="w-full btn py-3 rounded-lg font-medium">
+                        تسجيل الدخول
+                    </button>
+
+                    <div class="relative my-6">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-gray-700"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-2 bg-transparent text-gray-400">أو</span>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <button type="button" id="googleLogin" class="social-btn w-full py-3 rounded-lg flex items-center justify-center space-x-2 google">
+                            <i class="fab fa-google"></i>
+                            <span>تسجيل الدخول بجوجل</span>
+                        </button>
+
+                        <button type="button" id="githubLogin" class="social-btn w-full py-3 rounded-lg flex items-center justify-center space-x-2 github">
+                            <i class="fab fa-github"></i>
+                            <span>تسجيل الدخول بجيتهاب</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div class="mt-6 text-center">
+                    <p class="text-gray-400">
+                        ليس لديك حساب؟ 
+                        <a href="/register" class="text-purple-400 hover:text-purple-300">إنشاء حساب</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // Create particles
+        const particlesContainer = document.getElementById('particles');
+        for (let i = 0; i < 50; i++) {
+            const particle = document.createElement('div');
+            particle.classList.add('particle');
+            particle.style.left = `${Math.random() * 100}%`;
+            particle.style.top = `${Math.random() * 100}%`;
+            particle.style.animationDelay = `${Math.random() * 15}s`;
+            particle.style.animationDuration = `${15 + Math.random() * 10}s`;
+            particlesContainer.appendChild(particle);
+        }
+
+        // Toggle password visibility
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        togglePassword.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Login form submission
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        'username': email,
+                        'password': password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showToast('تم تسجيل الدخول بنجاح');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                } else {
+                    showToast(data.detail || 'فشل تسجيل الدخول', 'error');
+                }
+            } catch (error) {
+                showToast('حدث خطأ أثناء الاتصال بالخادم', 'error');
+            }
+        });
+
+        // Google login
+        document.getElementById('googleLogin').addEventListener('click', async function() {
+            try {
+                const response = await fetch('/api/auth/google', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        token: 'google-token-placeholder' // This would be obtained from Google OAuth
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showToast('تم تسجيل الدخول بنجاح');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                } else {
+                    showToast(data.detail || 'فشل تسجيل الدخول', 'error');
+                }
+            } catch (error) {
+                showToast('حدث خطأ أثناء الاتصال بالخادم', 'error');
+            }
+        });
+
+        // GitHub login
+        document.getElementById('githubLogin').addEventListener('click', async function() {
+            try {
+                const response = await fetch('/api/auth/github', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        token: 'github-token-placeholder' // This would be obtained from GitHub OAuth
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showToast('تم تسجيل الدخول بنجاح');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                } else {
+                    showToast(data.detail || 'فشل تسجيل الدخول', 'error');
+                }
+            } catch (error) {
+                showToast('حدث خطأ أثناء الاتصال بالخادم', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
